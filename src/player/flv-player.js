@@ -226,8 +226,11 @@ class FlvPlayer {
             }
         });
         this._transmuxer.on(TransmuxingEvents.LOADING_COMPLETE, () => {
-            this._msectl.endOfStream();
-            this._emitter.emit(PlayerEvents.LOADING_COMPLETE);
+            Log.v(this.TAG, 'restart in 1 s');
+            this.unload();
+            setTimeout(this.restart(), 1);
+//            this._msectl.endOfStream();
+//            this._emitter.emit(PlayerEvents.LOADING_COMPLETE);
         });
         this._transmuxer.on(TransmuxingEvents.RECOVERED_EARLY_EOF, () => {
             this._emitter.emit(PlayerEvents.RECOVERED_EARLY_EOF);
@@ -274,6 +277,13 @@ class FlvPlayer {
             this._transmuxer.destroy();
             this._transmuxer = null;
         }
+    }
+
+    restart() {
+        Log.v(this.TAG, 'restart...');
+       // this.unload();
+        this.load();
+        this.play();
     }
 
     play() {

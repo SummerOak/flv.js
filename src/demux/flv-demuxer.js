@@ -1078,6 +1078,17 @@ class FLVDemuxer {
             offset += lengthSize + naluSize;
         }
 
+        if (units.length > 0 && units.length < 2) {
+            let c = 4;
+            while (c > 0) {
+                let t = new Uint8Array([0x00, 0x00, 0x00, 0x01, 0x41]);
+                let u = {type: 0x1, data: t};
+                units.push(u);
+                length += t.byteLength;
+                c--;
+            }
+        }
+
         if (units.length) {
             let track = this._videoTrack;
             let avcSample = {
