@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "es6-promise": "^4.2.5",
+    "natives": "^1.1.6",
     "webworkify": "^1.5.0"
   },
   "devDependencies": {
