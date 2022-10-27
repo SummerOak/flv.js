@@ -86,7 +86,7 @@ class SPSParser {
                 }
             }
         }
-        gb.readUEG();  // log2_max_frame_num_minus4
+        let log2_max_frame_num_minus4 = gb.readUEG();  // log2_max_frame_num_minus4
         let pic_order_cnt_type = gb.readUEG();
         if (pic_order_cnt_type === 0) {
             gb.readUEG();  // log2_max_pic_order_cnt_lsb_minus_4
@@ -201,6 +201,8 @@ class SPSParser {
             ref_frames: ref_frames,
             chroma_format: chroma_format,  // 4:2:0, 4:2:2, ...
             chroma_format_string: SPSParser.getChromaFormatString(chroma_format),
+
+            log2_max_frame_num_minus4:log2_max_frame_num_minus4,
 
             frame_rate: {
                 fixed: fps_fixed,

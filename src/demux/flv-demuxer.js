@@ -942,6 +942,7 @@ class FLVDemuxer {
                 continue;
             }
 
+            meta.log2_max_frame_num_minus4 = config.log2_max_frame_num_minus4;
             meta.codecWidth = config.codec_size.width;
             meta.codecHeight = config.codec_size.height;
             meta.presentWidth = config.present_size.width;
@@ -1040,6 +1041,7 @@ class FLVDemuxer {
 
     _parseAVCVideoData(arrayBuffer, dataOffset, dataSize, tagTimestamp, tagPosition, frameType, cts) {
         let le = this._littleEndian;
+        let meta = this._videoMetadata;
         let v = new DataView(arrayBuffer, dataOffset, dataSize);
 
         let units = [], length = 0;
@@ -1049,6 +1051,7 @@ class FLVDemuxer {
         let dts = this._timestampBase + tagTimestamp;
         let keyframe = (frameType === 1);  // from FLV Frame Type constants
 
+        let unitType = 0;
         while (offset < dataSize) {
             if (offset + 4 >= dataSize) {
                 Log.w(this.TAG, `Malformed Nalu near timestamp ${dts}, offset = ${offset}, dataSize = ${dataSize}`);
@@ -1064,10 +1067,15 @@ class FLVDemuxer {
                 return;
             }
 
-            let unitType = v.getUint8(offset + lengthSize) & 0x1F;
+            unitType = v.getUint8(offset + lengthSize) & 0x1F;
 
             if (unitType === 5) {  // IDR
                 keyframe = true;
+            }
+
+            if (unitType === 7){ //sps
+                let config = SPSParser.parseSPS(new Uint8Array(arrayBuffer, dataOffset + offset + lengthSize, naluSize));
+                meta.log2_max_frame_num_minus4 = config.log2_max_frame_num_minus4;
             }
 
             let data = new Uint8Array(arrayBuffer, dataOffset + offset, lengthSize + naluSize);
@@ -1078,8 +1086,8 @@ class FLVDemuxer {
             offset += lengthSize + naluSize;
         }
 
-        if (units.length > 0 && units.length < 2) {
-            let c = 4;
+        if (units.length === 1 && unitType == 1 && meta.log2_max_frame_num_minus4 > 1) {
+            let c = 1;
             while (c > 0) {
                 let t = new Uint8Array([0x00, 0x00, 0x00, 0x01, 0x41]);
                 let u = {type: 0x1, data: t};
