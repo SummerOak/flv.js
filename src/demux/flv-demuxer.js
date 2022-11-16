@@ -21,6 +21,7 @@ import AMF from './amf-parser.js';
 import SPSParser from './sps-parser.js';
 import DemuxErrors from './demux-errors.js';
 import MediaInfo from '../core/media-info.js';
+import Browser from '../utils/browser.js';
 import {IllegalStateException} from '../utils/exception.js';
 
 function Swap16(src) {
@@ -1140,7 +1141,7 @@ class FLVDemuxer {
             this._onTrackMetadata('video', meta);
         }
 
-        if (units.length === 1 && unitType == 1 && meta.log2_max_frame_num_minus4 > 1) {
+        if (units.length === 1 && unitType == 1 && meta.log2_max_frame_num_minus4 > 1 && !Browser.safari) {
             let c = 1;
             while (c > 0) {
                 let t = new Uint8Array([0x00, 0x00, 0x00, 0x01, 0x41]);
