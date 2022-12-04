@@ -380,6 +380,10 @@ class FlvPlayer {
     }
 
     _onmseUpdateEnd() {
+        if (Browser.safari && this._config.isLive){
+            this._mediaElement.play();
+        }
+        
         if (!this._config.lazyLoad || this._config.isLive) {
             return;
         }
