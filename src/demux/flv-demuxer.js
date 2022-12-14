@@ -884,8 +884,10 @@ class FLVDemuxer {
 
     _updateMetaSPS(meta, config, sps){
         meta.log2_max_frame_num_minus4 = config.log2_max_frame_num_minus4;
-        meta.codecWidth = config.codec_size.width;
-        meta.codecHeight = config.codec_size.height;
+        if(meta.codecWidth == undefined)
+            meta.codecWidth = config.codec_size.width;
+        if(meta.codecHeight == undefined)
+            meta.codecHeight = config.codec_size.height;
         meta.presentWidth = config.present_size.width;
         meta.presentHeight = config.present_size.height;
 
