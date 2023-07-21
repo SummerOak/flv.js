@@ -58,8 +58,6 @@ class FLVDemuxer {
         this._onTrackMetadata = null;
         this._onDataAvailable = null;
 
-        this._videoMetadataNotified = false;
-
         this._dataOffset = probeData.dataOffset;
         this._firstParse = true;
         this._dispatch = false;
@@ -873,81 +871,6 @@ class FLVDemuxer {
         }
     }
 
-    _buf2hexfull(array){
-        let i = 0;
-        let s =  '';
-        for(i=0;i<array.byteLength;++i){
-            s += array[i].toString(16).padStart(2, '0') + ' ';
-        }
-        return s;
-    }
-
-    _updateMetaSPS(meta, config, sps){
-        meta.log2_max_frame_num_minus4 = config.log2_max_frame_num_minus4;
-        if(meta.codecWidth == undefined)
-            meta.codecWidth = config.codec_size.width;
-        if(meta.codecHeight == undefined)
-            meta.codecHeight = config.codec_size.height;
-        meta.presentWidth = config.present_size.width;
-        meta.presentHeight = config.present_size.height;
-
-        meta.profile = config.profile_string;
-        meta.level = config.level_string;
-        meta.bitDepth = config.bit_depth;
-        meta.chromaFormat = config.chroma_format;
-        meta.sarRatio = config.sar_ratio;
-        meta.frameRate = config.frame_rate;
-        meta.ref_frames = config.ref_frames;
-        meta.chroma_format_string = config.chroma_format_string;
-
-        if (config.frame_rate.fixed === false ||
-            config.frame_rate.fps_num === 0 ||
-            config.frame_rate.fps_den === 0) {
-            meta.frameRate = this._referenceFrameRate;
-        }
-
-        let fps_den = meta.frameRate.fps_den;
-        let fps_num = meta.frameRate.fps_num;
-        meta.refSampleDuration = meta.timescale * (fps_den / fps_num);
-
-        let codecArray = sps.subarray(1, 4);
-        let codecString = 'avc1.';
-        for (let j = 0; j < 3; j++) {
-            let h = codecArray[j].toString(16);
-            if (h.length < 2) {
-                h = '0' + h;
-            }
-            codecString += h;
-        }
-        meta.codec = codecString;
-        meta.codecString = codecString;
-    }
-
-    _notifyMediaInfo(meta){
-        let mi = this._mediaInfo;
-        mi.width = meta.codecWidth;
-        mi.height = meta.codecHeight;
-        mi.fps = meta.frameRate.fps;
-        mi.profile = meta.profile;
-        mi.level = meta.level;
-        mi.refFrames = meta.ref_frames;
-        mi.chromaFormat = meta.chroma_format_string;
-        mi.sarNum = meta.sarRatio.width;
-        mi.sarDen = meta.sarRatio.height;
-        mi.videoCodec = meta.codecString;
-
-        if (mi.hasAudio) {
-            if (mi.audioCodec != null) {
-                mi.mimeType = 'video/x-flv; codecs="' + mi.videoCodec + ',' + mi.audioCodec + '"';
-            }
-        } else {
-            mi.mimeType = 'video/x-flv; codecs="' + mi.videoCodec + '"';
-        }
-        if (mi.isComplete()) {
-            this._onMediaInfo(mi);
-        }
-    }
-
     _parseAVCDecoderConfigurationRecord(arrayBuffer, dataOffset, dataSize) {
         if (dataSize < 7) {
             Log.w(this.TAG, 'Flv: Invalid AVCDecoderConfigurationRecord, lack of data!');
@@ -1020,8 +943,64 @@ class FLVDemuxer {
                 continue;
             }
 
-            meta.spsLen = len;
-            this._updateMetaSPS(meta, config, sps);
+            meta.log2_max_frame_num_minus4 = config.log2_max_frame_num_minus4;
+            if(meta.codecWidth == undefined)
+                meta.codecWidth = config.codec_size.width;
+            if(meta.codecHeight == undefined)
+                meta.codecHeight = config.codec_size.height;
+            meta.presentWidth = config.present_size.width;
+            meta.presentHeight = config.present_size.height;
+
+            meta.profile = config.profile_string;
+            meta.level = config.level_string;
+            meta.bitDepth = config.bit_depth;
+            meta.chromaFormat = config.chroma_format;
+            meta.sarRatio = config.sar_ratio;
+            meta.frameRate = config.frame_rate;
+
+            if (config.frame_rate.fixed === false ||
+                config.frame_rate.fps_num === 0 ||
+                config.frame_rate.fps_den === 0) {
+                meta.frameRate = this._referenceFrameRate;
+            }
+
+            let fps_den = meta.frameRate.fps_den;
+            let fps_num = meta.frameRate.fps_num;
+            meta.refSampleDuration = meta.timescale * (fps_den / fps_num);
+
+            let codecArray = sps.subarray(1, 4);
+            let codecString = 'avc1.';
+            for (let j = 0; j < 3; j++) {
+                let h = codecArray[j].toString(16);
+                if (h.length < 2) {
+                    h = '0' + h;
+                }
+                codecString += h;
+            }
+            meta.codec = codecString;
+
+            let mi = this._mediaInfo;
+            mi.width = meta.codecWidth;
+            mi.height = meta.codecHeight;
+            mi.fps = meta.frameRate.fps;
+            mi.profile = meta.profile;
+            mi.level = meta.level;
+            mi.refFrames = config.ref_frames;
+            mi.chromaFormat = config.chroma_format_string;
+            mi.sarNum = meta.sarRatio.width;
+            mi.sarDen = meta.sarRatio.height;
+            mi.videoCodec = codecString;
+
+            if (mi.hasAudio) {
+                if (mi.audioCodec != null) {
+                    mi.mimeType = 'video/x-flv; codecs="' + mi.videoCodec + ',' + mi.audioCodec + '"';
+                }
+            } else {
+                mi.mimeType = 'video/x-flv; codecs="' + mi.videoCodec + '"';
+            }
+            if (mi.isComplete()) {
+                this._onMediaInfo(mi);
+            }
         }
 
         let ppsCount = v.getUint8(offset);  // numOfPictureParameterSets
@@ -1042,7 +1021,6 @@ class FLVDemuxer {
                 continue;
             }
 
-            meta.ppsLen = len;
             // pps is useless for extracting video information
             offset += len;
         }
@@ -1061,6 +1039,7 @@ class FLVDemuxer {
         }
         // notify new metadata
         this._dispatch = false;
+        this._onTrackMetadata('video', meta);
     }
 
     _parseAVCVideoData(arrayBuffer, dataOffset, dataSize, tagTimestamp, tagPosition, frameType, cts) {
@@ -1095,38 +1074,11 @@ class FLVDemuxer {
 
             if (unitType === 5) {  // IDR
                 keyframe = true;
-            } else if (unitType === 7) { //sps
-                let sps = new Uint8Array(arrayBuffer, dataOffset + offset + lengthSize, naluSize);
-                let config = SPSParser.parseSPS(sps);
-                this._updateMetaSPS(meta, config, sps);
-                
-                let oldAvcc = meta.avcc;
-                if (!this._videoMetadataNotified && oldAvcc){
-                    let avcc = new Uint8Array(oldAvcc.byteLength - meta.spsLen + naluSize);
-                    avcc.set(new Uint8Array(oldAvcc.buffer, 0, 6), 0);
-                    avcc[6] = (naluSize >> 8) & 0xFF;
-                    avcc[7] = naluSize & 0xFF;
-                    avcc.set(new Uint8Array(arrayBuffer, dataOffset + offset + lengthSize, naluSize), 6 + 2);
-                    avcc.set(new Uint8Array(oldAvcc.buffer, 6 + 2 + meta.spsLen), 6 + 2 + naluSize);
-                    Log.w(this.TAG, 'old avcc: ' + this._buf2hexfull(oldAvcc));
-                    Log.w(this.TAG, 'new avcc: ' + this._buf2hexfull(avcc));
-                    meta.avcc = avcc;
-                    meta.spsLen = naluSize;
-                }
-            } else if (unitType === 8) {
-                let oldAvcc = meta.avcc;
-                if (!this._videoMetadataNotified && oldAvcc){
-                    let avcc = new Uint8Array(oldAvcc.byteLength - meta.ppsLen + naluSize);
-                    let ppsStart = 6 + 2 + meta.spsLen;
-                    avcc.set(new Uint8Array(oldAvcc.buffer, 0, ppsStart), 0);
-                    avcc[ppsStart] = (naluSize >> 8) & 0xFF;
-                    avcc[ppsStart+1] = naluSize & 0xFF;
-                    avcc.set(new Uint8Array(arrayBuffer, dataOffset + offset + lengthSize, naluSize), ppsStart + 2);
-                    Log.w(this.TAG, 'old avcc: ' + this._buf2hexfull(oldAvcc));
-                    Log.w(this.TAG, 'new avcc: ' + this._buf2hexfull(avcc));
-                    meta.avcc = avcc;
-                    meta.ppsLen = naluSize;
-                }
+            }
+
+            if (unitType === 7){ //sps
+                let config = SPSParser.parseSPS(new Uint8Array(arrayBuffer, dataOffset + offset + lengthSize, naluSize));
+                meta.log2_max_frame_num_minus4 = config.log2_max_frame_num_minus4;
             }
 
             let data = new Uint8Array(arrayBuffer, dataOffset + offset, lengthSize + naluSize);
@@ -1135,12 +1087,6 @@ class FLVDemuxer {
             length += data.byteLength;
 
             offset += lengthSize + naluSize;
-        }
-
-        if (!this._videoMetadataNotified) {
-            this._videoMetadataNotified = true;
-            this._notifyMediaInfo(meta);
-            this._onTrackMetadata('video', meta);
         }
 
         if (units.length === 1 && unitType == 1 && meta.log2_max_frame_num_minus4 > 1 && !Browser.safari) {
